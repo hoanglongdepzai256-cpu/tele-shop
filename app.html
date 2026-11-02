@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>GLOW NEXUS Mini App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#080a0d; --card:#14181f; --line:rgba(200,210,225,.18);
+  --text:#f4f6f8; --muted:#9aa3b2; --accent:#c5cdd8; --ok:#7dffc4; --warn:#ffb020; --bad:#ff6b81;
+  --grad:linear-gradient(135deg,#e8eef6,#a8b4c4);
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Inter,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:72px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:10}
+.user{display:flex;align-items:center;gap:10px}
+.user img{width:42px;height:42px;border-radius:50%;border:1px solid var(--accent);object-fit:cover;background:#0c0e12}
+.user .name{font-weight:700;font-size:14px}
+.user .sub{font-size:11px;color:var(--muted)}
+.bal{background:rgba(125,255,196,.1);border:1px solid rgba(125,255,196,.35);color:var(--ok);padding:8px 12px;border-radius:10px;font-weight:800;font-size:13px}
+.tabs{display:flex;gap:6px;padding:10px 12px;position:fixed;bottom:0;left:0;right:0;background:rgba(10,12,16,.96);border-top:1px solid var(--line);z-index:20;justify-content:space-around}
+.tab{flex:1;text-align;padding:10px 6px;border-radius:10px;color:var(--muted);font-size:11px;border:none;background:transparent}
+.tab.active{background:rgba(200,210,225,.12);color:var(--accent);font-weight:700}
+.page{display:none;padding:14px}
+.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.card h3{font-size:15px;margin-bottom:6px}
+.card .desc{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.4}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.price{font-weight:800;color:var(--accent)}
+.stock{font-size:11px;color:var(--muted)}
+.stock.ok{color:var(--ok)}
+.stock.out{color:var(--bad)}
+button.btn{border:none;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer;font-size:13px}
+.btn-main{background:var(--grad);color:#0a0c10;width:100%}
+.btn-buy{background:var(--grad);color:#0a0c10;padding:8px 14px}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+input,textarea{width:100%;background:#0c0e12;border:1px solid var(--line);color:#fff;border-radius:10px;padding:12px;font-size:14px;margin:8px 0}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.quick button{background:rgba(200,210,225,.08);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:8px;font-size:12px}
+.qr{width:100%;max-width:240px;display:block;margin:12px auto;border-radius:12px;background:#fff}
+.memo{font-family:ui-monospace,monospace;color:var(--ok);font-weight:700;word-break:break-all}
+.keybox{background:rgba(125,255,196,.06);border:1px solid rgba(125,255,196,.25);border-radius:10px;padding:10px;font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;color:var(--ok);margin:8px 0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:#1a2029;border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:13px;z-index:50;opacity:0;transition:.25s;max-width:90%}
+.toast.show{opacity:1}
+.empty{text-align:center;color:var(--muted);padding:40px 16px;font-size:13px}
+.err-banner{background:rgba(255,107,129,.12);border:1px solid rgba(255,107,129,.35);color:#ffc0c8;padding:12px;border-radius:12px;margin:12px;font-size:12px;line-height:1.45}
+</style>
+</head>
+<body>
+<div id="auth-error" class="err-banner" style="display:none"></div>
+<header class="top">
+  <div class="user">
+    <img id="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='42' height='42'%3E%3Crect fill='%2314181f' width='42' height='42'/%3E%3C/svg%3E" alt="">
+    <div>
+      <div class="name" id="uname">Đang tải…</div>
+      <div class="sub" id="usub">GLOW NEXUS</div>
+    </div>
+  </div>
+  <div class="bal" id="balance">0 đ</div>
+</header>
+
+<section id="page-shop" class="page active"></section>
+<section id="page-topup" class="page">
+  <div class="card">
+    <h3>💰 Nạp tiền</h3>
+    <p class="desc">Tối thiểu 5.000đ · tối đa 1.900.000đ. Mỗi lần tạo mã mới. Cộng tiền khi hệ thống nhận CK.</p>
+    <input type="number" id="topup-amount" value="50000" min="5000" max="1900000" step="1000">
+    <div class="quick">
+      <button type="button" data-a="5000">5K</button>
+      <button type="button" data-a="10000">10K</button>
+      <button type="button" data-a="50000">50K</button>
+      <button type="button" data-a="100000">100K</button>
+      <button type="button" data-a="500000">500K</button>
+      <button type="button" data-a="1900000">1.9TR</button>
+    </div>
+    <button class="btn btn-main" id="btn-topup">Tạo mã QR</button>
+  </div>
+  <div class="card" id="topup-result" style="display:none">
+    <h3>Chuyển khoản</h3>
+    <img class="qr" id="qr-img" alt="QR">
+    <p class="desc">Số tiền: <b id="qr-amount">0</b></p>
+    <p class="desc">Nội dung: <span class="memo" id="qr-memo"></span>
+      <button class="btn btn-ghost" style="padding:4px 8px;margin-left:6px" id="copy-memo">Copy</button>
+    </p>
+    <p class="desc" id="qr-bank"></p>
+  </div>
+</section>
+<section id="page-history" class="page"></section>
+
+<nav class="tabs">
+  <button class="tab active" data-page="shop">⚔️ Shop</button>
+  <button class="tab" data-page="topup">💰 Nạp</button>
+  <button class="tab" data-page="history">📦 Lịch sử</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  try { tg.ready(); tg.expand(); tg.setHeaderColor('#14181f'); tg.setBackgroundColor('#080a0d'); } catch(e) {}
+}
+
+const state = { me: null, products: [], orders: [] };
+
+function money(n){ return Number(n||0).toLocaleString('vi-VN') + ' đ'; }
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2800);
+}
+function initData(){
+  return (tg && tg.initData) ? tg.initData : '';
+}
+async function api(path, opts={}){
+  const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  const id = initData();
+  if (id) headers['X-Telegram-Init-Data'] = id;
+  if (!id && location.hostname==='localhost') headers['X-Dev-User'] = 'dev-user';
+  const res = await fetch(path, { ...opts, headers });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || res.statusText || 'Lỗi API');
+  return data;
+}
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.page===name));
+  document.getElementById('page-'+name).classList.add('active');
+  if (name==='history') loadOrders();
+  if (name==='shop') loadProducts();
+}
+
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>showPage(t.dataset.page));
+});
+document.querySelectorAll('.quick button').forEach(b=>{
+  b.addEventListener('click', ()=>{ document.getElementById('topup-amount').value = b.dataset.a; });
+});
+
+function renderMe(){
+  const u = state.me;
+  if (!u) return;
+  document.getElementById('uname').textContent = u.name || 'Khách';
+  document.getElementById('usub').textContent = u.username ? '@'+u.username : 'GLOW NEXUS';
+  document.getElementById('balance').textContent = money(u.balance);
+  if (u.photo_url) document.getElementById('avatar').src = u.photo_url;
+}
+
+function renderProducts(){
+  const box = document.getElementById('page-shop');
+  if (!state.products.length){
+    box.innerHTML = '<div class="empty">Chưa có sản phẩm</div>';
+    return;
+  }
+  box.innerHTML = state.products.map(p=>{
+    const out = p.stock<=0;
+    return `<div class="card">
+      <h3>${esc(p.name)}</h3>
+      <div class="desc">${esc(p.desc||'')}</div>
+      <div class="row">
+        <div>
+          <div class="price">${money(p.price)}</div>
+          <div class="stock ${out?'out':'ok'}">${out?'Hết hàng':'Còn '+p.stock}</div>
+        </div>
+        <button class="btn btn-buy" ${out?'disabled':''} onclick="buy('${p.id}')">${out?'Hết':'Mua'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderOrders(){
+  const box = document.getElementById('page-history');
+  if (!state.orders.length){
+    box.innerHTML = '<div class="empty">Chưa có đơn · key mua xong lưu ở đây</div>';
+    return;
+  }
+  box.innerHTML = state.orders.map(o=>{
+    const keys = (o.keys||[]).join('\n');
+    return `<div class="card">
+      <h3>${esc(o.productName)}</h3>
+      <div class="desc">${esc(o.createdAt||'')} · ${money(o.amount)} · <code>${esc(o.id)}</code></div>
+      ${keys?`<div class="keybox">${esc(keys)}</div>
+        <div class="row">
+          <button class="btn btn-ghost" onclick="copyText(${JSON.stringify(keys)})">📋 Copy key</button>
+          <button class="btn btn-ghost" onclick="report('${o.id}')">🛡️ Báo lỗi</button>
+        </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({'+':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
+}
+// fix esc ampersand
+function esc(s){
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadMe(){
+  const d = await api('/api/me');
+  state.me = d;
+  renderMe();
+}
+async function loadProducts(){
+  const d = await api('/api/products');
+  state.products = d.products||[];
+  renderProducts();
+}
+async function loadOrders(){
+  const d = await api('/api/orders');
+  state.orders = d.orders||[];
+  renderOrders();
+}
+
+async function buy(productId){
+  try{
+    const d = await api('/api/buy',{method:'POST',body:JSON.stringify({productId,qty:1})});
+    toast('Đã giao key');
+    if (state.me) state.me.balance = d.balance;
+    renderMe();
+    await loadProducts();
+    await loadOrders();
+    showPage('history');
+    if (tg && d.order && d.order.keys) {
+      try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){}
+    }
+  }catch(e){
+    toast(e.message||'Không mua được');
+    if ((e.message||'').includes('Số dư')) showPage('topup');
+  }
+}
+
+document.getElementById('btn-topup').onclick = async ()=>{
+  try{
+    const amount = parseInt(document.getElementById('topup-amount').value,10);
+    const d = await api('/api/topup',{method:'POST',body:JSON.stringify({amount})});
+    document.getElementById('topup-result').style.display = 'block';
+    document.getElementById('qr-img').src = d.qrUrl;
+    document.getElementById('qr-amount').textContent = money(d.amount);
+    document.getElementById('qr-memo').textContent = d.memo;
+    document.getElementById('qr-bank').textContent = `STK ${d.bank.account} · ${d.bank.accountName}`;
+    window.__memo = d.memo;
+    toast('Đã tạo mã · chuyển đúng nội dung');
+  }catch(e){ toast(e.message||'Lỗi tạo mã'); }
+};
+document.getElementById('copy-memo').onclick = ()=>copyText(window.__memo||'');
+
+function copyText(t){
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(()=>toast('Đã copy')).catch(()=>toast(t));
+}
+async function report(orderId){
+  const reason = prompt('Mô tả lỗi key:','');
+  if (reason===null) return;
+  try{
+    await api('/api/warranty',{method:'POST',body:JSON.stringify({orderId,reason})});
+    toast('Đã gửi admin');
+  }catch(e){ toast(e.message); }
+}
+
+(async function boot(){
+  try{
+    await loadMe();
+    await loadProducts();
+  }catch(e){
+    const box = document.getElementById('auth-error');
+    box.style.display = 'block';
+    box.innerHTML = '<b>Chưa vào được Mini App API</b><br>' +
+      '• Mở shop <b>bên trong Telegram</b> (nút Web App của bot)<br>' +
+      '• Hoặc server bật <code>ALLOW_DEV_AUTH=1</code> để test localhost<br>' +
+      'Lỗi: ' + (e.message||e);
+    document.getElementById('uname').textContent = 'Chưa đăng nhập';
+  }
+})();
+</script>
+</body>
+</html>
